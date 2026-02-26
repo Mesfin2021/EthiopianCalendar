@@ -1,35 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'package:abushakir/abushakir.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const MyApp());
-}
-
-class AboutScreen extends StatelessWidget {
-  const AboutScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('About')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('Ethiopian Calendar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            Text('Displays Ethiopian and Gregorian dates side-by-side, supports vertical paging and highlights holidays.'),
-            SizedBox(height: 12),
-            Text('Built with abushakir for Ethiopian date conversions.'),
-            SizedBox(height: 12),
-            Text('By Mesfin Tenkir Gebremariam.'),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class MyApp extends StatelessWidget {
@@ -52,7 +29,7 @@ class CalendarView extends StatefulWidget {
   State<CalendarView> createState() => _CalendarViewState();
 }
 
-class _CalendarViewState extends State<CalendarView> {
+class _CalendarViewState extends State<CalendarView> with WidgetsBindingObserver {
   static const int _initialPage = 5000;
   late final PageController _controller;
   bool _isDrawerOpen = false;
@@ -62,6 +39,7 @@ class _CalendarViewState extends State<CalendarView> {
   void initState() {
     super.initState();
     _controller = PageController(initialPage: _initialPage);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   void _goToToday() {
@@ -313,31 +291,25 @@ class _CalendarViewState extends State<CalendarView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Major Ethiopian holidays / fasts', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
+                // const SizedBox(height: 6),
                 Expanded(
                   child: Builder(builder: (context) {
                     final events = _eventsForMonth(displayedMonth);
                     if (events.isEmpty) {
                       return const Text('No major holidays listed for this month.');
                     }
-                    return SingleChildScrollView(
-                      child: Wrap(
-                        spacing: 12,
-                        runSpacing: 8,
-                        children: events
-                            .map((e) {
-                              final int etDay = (e['etDay'] is int) ? e['etDay'] as int : 0;
-                              final String label = e['label'] as String;
-                              // final String display = etDay > 0 ? '$label ($ethiopianMonthName $etDay)' : label;
-                              final String display = etDay > 0 ? '($etDay) $label' : label;
-                              return Chip(
-                                label: Text(display, style: const TextStyle(color: Colors.red)),
-                                backgroundColor: Colors.redAccent.withAlpha(20),
-                                side: BorderSide(color: Colors.redAccent.withAlpha(153)),
-                              );
-                            }).toList(),
-                      ),
-                    );
+                      final displays = events.map((e) {
+                        final int etDay = (e['etDay'] is int) ? e['etDay'] as int : 0;
+                        final String label = e['label'] as String;
+                        return etDay > 0 ? '($etDay) $label' : label;
+                      }).toList();
+                      final String joined = displays.join(', ');
+                      return SingleChildScrollView(
+                        child: Text(
+                          joined,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      );
                   }),
                 ),
               ],
@@ -416,7 +388,45 @@ class _CalendarViewState extends State<CalendarView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      // Restore system bars when the app is not active so the system UI behaves normally
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+  }
+}
+
+class AboutScreen extends StatelessWidget {
+  const AboutScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('About')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text('Ethiopian Calendar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('Displays Ethiopian and Gregorian dates side-by-side, supports vertical paging and highlights holidays.'),
+            SizedBox(height: 12),
+            Text('Built with abushakir for Ethiopian date conversions.'),
+            SizedBox(height: 12),
+            Text('By Mesfin Tenkir Gebremariam.'),
+          ],
+        ),
+      ),
+    );
   }
 }
